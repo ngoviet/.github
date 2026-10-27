@@ -306,7 +306,7 @@ def cmd_scaffold(root, rtype, title, repo, force):
         for n in SCAFFOLD_BODY[rtype]:
             body += [f"## {NAMES[n] if vi else n}", "", "TODO", ""]
         body += [support_block(repo, vi), "", f"## {NAMES['License'] if vi else 'License'}", "",
-                 "MIT © Ngô Đức Việt", ""]
+                 "[MIT](LICENSE) © Ngô Đức Việt", ""]
         p.write_text("\n".join(body), encoding="utf-8")
         made.append({"file": f, "action": "written"})
     print("\n".join(table("scaffold", ["file", "action"], made)))

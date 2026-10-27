@@ -23,7 +23,7 @@ Every README starts the same way:
    screenshot.
 
 and ends the same way: the shared support block, then `## License` / `## Giấy phép`
-(`MIT © Ngô Đức Việt`, plus "Not affiliated with …" when the project targets a vendor's device).
+(`[MIT](LICENSE) © Ngô Đức Việt`, plus "Not affiliated with …" when the project targets a vendor's device).
 
 Required `##` sections, in this order (others may sit in between):
 
