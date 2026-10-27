@@ -19,6 +19,7 @@ C = dict(edge="#060a14", bg="#0a1122", surface="#0e182e", glow="#142443", border
 FONT = "'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
 VIETQR = ("00020101021138570010A000000727012700069704220113VQRQAMTAF55920208QRIBFTTA"
           "53037045802VN62110107NPS68696304C843")
+BEP20 = "0xcbf0402b232cb24b4d998f09a4884f87b5f74750"   # ví BNB Smart Chain; trùng với readme-axi
 
 STYLE = f"""<style>
   text {{ font-family: {FONT}; }}
@@ -83,32 +84,49 @@ button("btn-coffee.svg", "Buy me a coffee", "", C["coffee"], C["coffee_t"], CUP,
 button("btn-sponsors.svg", "GitHub Sponsors", "Monthly or one-time · 0% fees", C["pink"], C["pink_t"], HEART, "GitHub Sponsors")
 
 
-# ---------- VietQR card ----------
-qr = segno.make(VIETQR, error="m")
-# Kiểm tra vòng: render PNG từ đúng ma trận này rồi giải mã lại
-buf = io.BytesIO()
-qr.save(buf, kind="png", scale=8, border=4)
-decoded = zxingcpp.read_barcodes(Image.open(io.BytesIO(buf.getvalue())))
-assert decoded and decoded[0].text == VIETQR, "QR vẽ lại không giải mã ra đúng payload"
-print("QR round-trip OK, version", qr.version, qr.designator)
+# ---------- thẻ QR: VietQR và ví crypto, cùng kích thước để đặt cạnh nhau ----------
+QBOX = 259                    # cạnh vùng QR (px), hai thẻ dùng chung
+PAD = 18                      # quiet zone (>= 2.5 module) trên nền trắng
+CW = QBOX + 2 * PAD + 56
+CH = 120 + QBOX + 2 * PAD + 118
 
-n = qr.symbol_size(border=0)[0]
-mod = 7
-qsize = n * mod
-pad = 18                      # quiet zone (>= 2.5 module) trên nền trắng
-W = qsize + 2 * pad + 56
-H = 120 + qsize + 2 * pad + 118
-qx, qy = (W - qsize) / 2, 108 + pad
-rects = "".join(f'<rect x="{qx + c*mod}" y="{qy + r*mod}" width="{mod}" height="{mod}"/>'
-                for r, row in enumerate(qr.matrix) for c, v in enumerate(row) if v)
-body = defs(("t", C["teal"]))
-body += f'<rect x="1.5" y="1.5" width="{W-3}" height="{H-3}" rx="20" fill="url(#bgg)" stroke="{C["teal"]}" stroke-width="2" filter="url(#glow-t)"/>'
-body += f'<text x="{W/2}" y="46" text-anchor="middle" font-size="24" font-weight="700" fill="{C["teal_t"]}">VietQR</text>'
-body += f'<text x="{W/2}" y="74" text-anchor="middle" font-size="15" fill="{C["dim"]}">Chuyển khoản trong nước · miễn phí</text>'
-body += f'<rect x="{qx-pad}" y="{qy-pad}" width="{qsize+2*pad}" height="{qsize+2*pad}" rx="12" fill="#ffffff"/>'
-body += f'<g fill="{C["bg"]}" shape-rendering="crispEdges">{rects}</g>'
-ty = qy + qsize + pad + 36
-body += f'<text x="{W/2}" y="{ty}" text-anchor="middle" font-size="17" font-weight="600" fill="{C["fg"]}">MB Bank · NGO DUC VIET</text>'
-body += f'<text x="{W/2}" y="{ty+26}" text-anchor="middle" font-size="16" fill="{C["dim"]}">STK <tspan fill="{C["teal_t"]}" font-weight="600">911051212</tspan></text>'
-body += f'<text x="{W/2}" y="{ty+54}" text-anchor="middle" font-size="14" fill="{C["dim"]}">Nội dung: <tspan fill="{C["fg"]}">Ung ho + tên dự án</tspan></text>'
-write("vietqr-card.svg", W, H, body, "VietQR MB Bank NGO DUC VIET 911051212")
+
+def qr_card(name, payload, accent, accent_t, title, sub, lines, aria):
+    qr = segno.make(payload, error="m")
+    # Kiểm tra vòng: render PNG từ đúng ma trận này rồi giải mã lại
+    buf = io.BytesIO()
+    qr.save(buf, kind="png", scale=8, border=4)
+    decoded = zxingcpp.read_barcodes(Image.open(io.BytesIO(buf.getvalue())))
+    assert decoded and decoded[0].text == payload, f"{name}: QR vẽ lại không giải mã ra đúng payload"
+    print(f"{name}: QR round-trip OK, version", qr.version, qr.designator)
+    n = qr.symbol_size(border=0)[0]
+    mod = QBOX // n
+    qsize = n * mod
+    qx, qy = (CW - qsize) / 2, 108 + PAD + (QBOX - qsize) / 2
+    rects = "".join(f'<rect x="{qx + c*mod}" y="{qy + r*mod}" width="{mod}" height="{mod}"/>'
+                    for r, row in enumerate(qr.matrix) for c, v in enumerate(row) if v)
+    bx, by = (CW - QBOX) / 2 - PAD, 108
+    b = defs(("t", accent))
+    b += f'<rect x="1.5" y="1.5" width="{CW-3}" height="{CH-3}" rx="20" fill="url(#bgg)" stroke="{accent}" stroke-width="2" filter="url(#glow-t)"/>'
+    b += f'<text x="{CW/2}" y="46" text-anchor="middle" font-size="24" font-weight="700" fill="{accent_t}">{title}</text>'
+    b += f'<text x="{CW/2}" y="74" text-anchor="middle" font-size="15" fill="{C["dim"]}">{sub}</text>'
+    b += f'<rect x="{bx}" y="{by}" width="{QBOX+2*PAD}" height="{QBOX+2*PAD}" rx="12" fill="#ffffff"/>'
+    b += f'<g fill="{C["bg"]}" shape-rendering="crispEdges">{rects}</g>'
+    ty = by + QBOX + 2 * PAD + 36
+    for i, ln in enumerate(lines):
+        b += f'<text x="{CW/2}" y="{ty + i*26}" text-anchor="middle" {ln}</text>'
+    write(name, CW, CH, b, aria)
+
+
+qr_card("vietqr-card.svg", VIETQR, C["teal"], C["teal_t"], "VietQR", "Chuyển khoản trong nước · miễn phí", [
+    f'font-size="17" font-weight="600" fill="{C["fg"]}">MB Bank · NGO DUC VIET',
+    f'font-size="16" fill="{C["dim"]}">STK <tspan fill="{C["teal_t"]}" font-weight="600">911051212</tspan>',
+    f'font-size="14" fill="{C["dim"]}" dy="2">Nội dung: <tspan fill="{C["fg"]}">Ung ho + tên dự án</tspan>',
+], "VietQR MB Bank NGO DUC VIET 911051212")
+
+MONO = "ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace"
+qr_card("crypto-card.svg", BEP20, C["cyan"], C["cyan"], "Crypto", "BNB Smart Chain (BEP20) only", [
+    f'font-size="17" font-weight="600" fill="{C["fg"]}">USDT · USDC · BNB · ETH · BTC',
+    f'font-size="15" style="font-family:{MONO}" fill="{C["cyan"]}">{BEP20[:21]}',
+    f'font-size="15" style="font-family:{MONO}" fill="{C["cyan"]}">{BEP20[21:]}',
+], f"Crypto wallet BNB Smart Chain BEP20 {BEP20}")

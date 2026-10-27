@@ -217,11 +217,11 @@ def support_block(repo, vi):
     if vi:
         title, note = "## Ủng hộ dự án", (f"🇻🇳 VietQR: quét bằng app ngân hàng bất kỳ, nội dung <code>Ung ho {repo}</code>. "
                                           "Cảm ơn bạn đã giúp dự án tiếp tục phát triển!")
-        crypto = "Tiền mã hoá (mạng BEP20)"
+        crypto = "Ví tiền mã hoá, chỉ gửi qua mạng BNB Smart Chain (BEP20)"
     else:
         title, note = "## Support the project", (f"🇻🇳 VietQR: scan with any Vietnamese banking app, transfer note "
                                                  f"<code>Ung ho {repo}</code>. Thank you for keeping this project alive!")
-        crypto = "Crypto (BEP20 network)"
+        crypto = "Crypto wallet, BNB Smart Chain (BEP20) only"
     return f"""{START}
 {title}
 
@@ -237,10 +237,13 @@ def support_block(repo, vi):
 
 <p align="center">
   <img src="{ASSET}/vietqr-card.svg" width="300" alt="VietQR — MB Bank — NGO DUC VIET — 911051212">
+  &nbsp;
+  <img src="{ASSET}/crypto-card.svg" width="300" alt="Crypto — BNB Smart Chain (BEP20) — {BEP20}">
 </p>
 
+<p align="center"><b>{crypto}:</b><br><code>{BEP20}</code></p>
+
 <p align="center"><sub>{note}</sub></p>
-<p align="center"><sub>{crypto}: <code>{BEP20}</code> · USDT · USDC · BNB · ETH · BTC</sub></p>
 {END}"""
 
 
