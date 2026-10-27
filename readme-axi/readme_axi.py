@@ -22,7 +22,7 @@ SWITCH_VI = "[English](README.md) · **Tiếng Việt**"
 TYPE_RE = re.compile(r"<!--\s*readme-axi\s+type=(\w+)\s*-->")
 START, END = "<!-- support:start -->", "<!-- support:end -->"
 ASSET = "https://raw.githubusercontent.com/ngoviet/.github/main/assets/support"
-BEP20 = "0x57f07d44fb581cddc028a0c67d63a8cc05aa6caa"
+BEP20 = "0xcbf0402b232cb24b4d998f09a4884f87b5f74750"
 
 # tên mục chuẩn: EN -> VI
 NAMES = {
