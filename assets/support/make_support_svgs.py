@@ -77,7 +77,7 @@ def button(name, label, sub, accent, accent_t, icon, title):
 CUP = ('<path d="M2 8h20v9a7 7 0 0 1-7 7H9a7 7 0 0 1-7-7z"/><path d="M22 11h3a3 3 0 0 1 0 6h-3"/>'
        '<path class="pulse" d="M8 1c-1 2 1 3 0 5M13 1c-1 2 1 3 0 5M18 1c-1 2 1 3 0 5"/>')
 HEART = ('<path d="M14 26S2 18.5 2 10.5A6 6 0 0 1 14 7a6 6 0 0 1 12 3.5C26 18.5 14 26 14 26z"/>')
-button("btn-coffee.svg", "Buy me a coffee", "Card · Apple Pay · PayPal", C["coffee"], C["coffee_t"], CUP, "Buy me a coffee")
+button("btn-coffee.svg", "Buy me a coffee", "Card · one-time or monthly", C["coffee"], C["coffee_t"], CUP, "Buy me a coffee")
 button("btn-sponsors.svg", "GitHub Sponsors", "Monthly or one-time · 0% fees", C["pink"], C["pink_t"], HEART, "GitHub Sponsors")
 
 
