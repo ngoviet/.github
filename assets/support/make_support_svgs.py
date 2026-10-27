@@ -69,15 +69,17 @@ def button(name, label, sub, accent, accent_t, icon, title):
     b = defs(("a", accent))
     b += f'<rect x="1.5" y="1.5" width="{w-3}" height="{h-3}" rx="14" fill="{C["surface"]}" stroke="{accent}" stroke-width="2" filter="url(#glow-a)"/>'
     b += f'<g transform="translate(22 16)" fill="none" stroke="{accent_t}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">{icon}</g>'
-    b += f'<text x="70" y="30" font-size="19" font-weight="700" fill="{accent_t}">{label}</text>'
-    b += f'<text x="70" y="49" font-size="13" fill="{C["dim"]}">{sub}</text>'
+    # không có chữ phụ thì nhãn nằm giữa theo chiều dọc
+    b += f'<text x="70" y="{30 if sub else 39}" font-size="19" font-weight="700" fill="{accent_t}">{label}</text>'
+    if sub:
+        b += f'<text x="70" y="49" font-size="13" fill="{C["dim"]}">{sub}</text>'
     write(name, w, h, b, title)
 
 
 CUP = ('<path d="M2 8h20v9a7 7 0 0 1-7 7H9a7 7 0 0 1-7-7z"/><path d="M22 11h3a3 3 0 0 1 0 6h-3"/>'
        '<path class="pulse" d="M8 1c-1 2 1 3 0 5M13 1c-1 2 1 3 0 5M18 1c-1 2 1 3 0 5"/>')
 HEART = ('<path d="M14 26S2 18.5 2 10.5A6 6 0 0 1 14 7a6 6 0 0 1 12 3.5C26 18.5 14 26 14 26z"/>')
-button("btn-coffee.svg", "Buy me a coffee", "Card · one-time or monthly", C["coffee"], C["coffee_t"], CUP, "Buy me a coffee")
+button("btn-coffee.svg", "Buy me a coffee", "", C["coffee"], C["coffee_t"], CUP, "Buy me a coffee")
 button("btn-sponsors.svg", "GitHub Sponsors", "Monthly or one-time · 0% fees", C["pink"], C["pink_t"], HEART, "GitHub Sponsors")
 
 
