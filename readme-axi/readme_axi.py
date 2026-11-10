@@ -2,24 +2,29 @@
 """readme-axi — kiểm tra README song ngữ Anh – Việt theo khung chung của ngoviet.
 
 Lệnh:
-  readme_axi.py [check] [dir] [--type ha|card|esp32|tool]   kiểm tra README.md + README.vi.md
+  readme_axi.py [check] [dir] [--type T] [--repo name]      kiểm tra README.md + README.vi.md
   readme_axi.py drift [dir] [--strict]                      README.md đổi mà README.vi.md chưa theo
   readme_axi.py support [dir] [--repo name] [--write]       chèn/thay khối Ủng hộ chung (mặc định chỉ xem)
-  readme_axi.py scaffold [dir] --type T --title "..." [--repo name] [--force]
+  readme_axi.py scaffold [dir] --type T --title "..." [--private] [--repo name] [--force]
+  readme_axi.py names                                       tên mục chuẩn, mục bắt buộc theo loại
+Loại T: ha, card, esp32, tool, app, ops, config, docs.
+Repo private: dấu <!-- readme-axi type=T private --> (vẫn song ngữ, không bắt khối Ủng hộ và mục License).
+Tên repo (cho khối Ủng hộ): --repo, rồi git remote origin, rồi tên thư mục.
 Mã thoát: 0 = đạt, 1 = có lỗi, 2 = sai cách gọi. Output dạng TOON.
 Chỉ dùng thư viện chuẩn để workflow tải về một tệp là chạy được.
 """
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 EN, VI = "README.md", "README.vi.md"
 SWITCH_EN = "**English** · [Tiếng Việt](README.vi.md)"
 SWITCH_VI = "[English](README.md) · **Tiếng Việt**"
-TYPE_RE = re.compile(r"<!--\s*readme-axi\s+type=(\w+)\s*-->")
+# <!-- readme-axi type=tool --> hoặc <!-- readme-axi type=tool private -->
+TYPE_RE = re.compile(r"<!--\s*readme-axi\s+type=(\w+)((?:\s+[\w-]+)*)\s*-->")
+FLAGS = {"private"}
 START, END = "<!-- support:start -->", "<!-- support:end -->"
 ASSET = "https://raw.githubusercontent.com/ngoviet/.github/main/assets/support"
 BEP20 = "0xcbf0402b232cb24b4d998f09a4884f87b5f74750"
@@ -32,6 +37,7 @@ NAMES = {
     "How it works": "Cách hoạt động", "Development": "Phát triển", "Usage": "Cách dùng",
     "Options": "Tuỳ chọn", "Hardware": "Phần cứng", "Quick start": "Bắt đầu nhanh",
     "Home Assistant": "Home Assistant", "Project layout": "Cấu trúc dự án", "Commands": "Lệnh",
+    "Deployment": "Triển khai",
     "Support the project": "Ủng hộ dự án", "License": "Giấy phép",
 }
 # mục bắt buộc theo loại repo, đúng thứ tự (mục khác được chen vào giữa)
@@ -40,7 +46,14 @@ REQUIRED = {
     "card": ["Features", "Installation", "Usage"],
     "esp32": ["Features", "Hardware", "Quick start", "Home Assistant"],
     "tool": ["Installation", "Usage"],
+    "app": ["Features", "Development", "Deployment"],     # web app, dịch vụ
+    "ops": ["Usage", "Project layout"],                   # repo vận hành (script, máy chủ)
+    "config": ["Project layout", "Deployment"],           # repo cấu hình (vd HA-Config)
+    "docs": ["Project layout"],                           # kho tài liệu, ghi chép
 }
+TYPES = "|".join(REQUIRED)
+# phần đuôi mà repo public bắt buộc, repo private thì không
+TAIL = ["Support the project", "License"]
 EMOJI = re.compile("[\U0001F000-\U0001FAFF☀-➿⬀-⯿⌀-⏿️‍�]")
 
 
@@ -84,14 +97,45 @@ def headings(text):
     return out
 
 
-def detect_type(text):
+def marker(text):
+    """(loại, tập cờ) từ dòng <!-- readme-axi type=... -->, hoặc (None, set())."""
     m = TYPE_RE.search(text)
-    return m.group(1) if m else None
+    return (m.group(1), set(m.group(2).split())) if m else (None, set())
+
+
+def is_private(root):
+    """Repo private khi dấu trong README.md (hoặc README.vi.md nếu thiếu bản Anh) có cờ private."""
+    for f in (EN, VI):
+        p = root / f
+        if p.exists():
+            return "private" in marker(read(p))[1]
+    return False
+
+
+def repo_name(root, given=None):
+    """(tên, nguồn): --repo, rồi tên repo trong git remote origin, rồi tên thư mục.
+
+    Tên thư mục sai khi chạy trong worktree hay bản clone tạm, nên origin đứng trước.
+    """
+    if given:
+        return given, "flag"
+    try:
+        r = subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"],
+                           capture_output=True, text=True, encoding="utf-8")
+        url = r.stdout.strip() if r.returncode == 0 else ""
+    except OSError:
+        url = ""
+    name = re.split(r"[/:\\]", url.rstrip("/\\"))[-1] if url else ""
+    if name.endswith(".git"):
+        name = name[:-4]
+    if name:
+        return name, "origin"
+    return root.resolve().name, "dir"
 
 
 # ---------- check ----------
 
-def check(root, forced_type=None):
+def check(root, forced_type=None, repo=None):
     issues = []
 
     def add(f, rule, detail):
@@ -105,15 +149,20 @@ def check(root, forced_type=None):
         else:
             add(f, "missing", "tệp không có")
     rtype = forced_type
+    marks = {}
     for f, text in files.items():
-        t = detect_type(text)
+        t, flags = marks[f] = marker(text)
         if not t:
-            add(f, "type-marker", "thiếu dòng <!-- readme-axi type=ha|card|esp32|tool -->")
+            add(f, "type-marker", f"thiếu dòng <!-- readme-axi type={TYPES} [private] -->")
         elif t not in REQUIRED:
             add(f, "type-marker", f"loại lạ: {t}")
+        for x in sorted(flags - FLAGS):
+            add(f, "type-marker", f"cờ lạ trong dấu: {x} (chỉ có private)")
         rtype = rtype or t
-    if EN in files and VI in files and detect_type(files[EN]) != detect_type(files[VI]):
-        add(VI, "type-marker", "loại khác với README.md")
+    if EN in marks and VI in marks and marks[EN] != marks[VI]:
+        add(VI, "type-marker", "dấu khác với README.md (loại hoặc cờ private)")
+    private = "private" in next(iter(marks.values()), (None, set()))[1]
+    repo = repo or repo_name(root)[0]
 
     heads = {}
     for f, text in files.items():
@@ -140,6 +189,8 @@ def check(root, forced_type=None):
                 add(f, "order", f"## {w} sai thứ tự")
             else:
                 pos = names.index(w)
+        if private:
+            continue  # repo private: không ai ngoài chủ đọc, mã không cấp phép MIT
         lic = NAMES["License"] if vi else "License"
         sup = NAMES["Support the project"] if vi else "Support the project"
         if lic not in names:
@@ -150,19 +201,24 @@ def check(root, forced_type=None):
             add(f, "support", f"cần đúng một khối {START} … {END}")
         else:
             blk = text[text.index(START):text.index(END) + len(END)]
-            if blk != support_block(root.resolve().name, vi):
-                add(f, "support", f"khối ## {sup} khác mẫu chung")
+            if blk != support_block(repo, vi):
+                add(f, "support", f"khối ## {sup} khác mẫu chung (repo {repo})")
             if lic in names and text.index(START) > text.index(f"## {lic}"):
                 add(f, "order", f"khối Ủng hộ phải đứng trước ## {lic}")
     if EN in heads and VI in heads and len(heads[EN]) != len(heads[VI]):
         add(VI, "parity", f"số mục ## khác nhau: EN {len(heads[EN])}, VI {len(heads[VI])}")
-    return rtype, heads, issues
+    return rtype, private, heads, issues
 
 
-def cmd_check(root, forced_type):
-    rtype, heads, issues = check(root, forced_type)
-    print(f"repo: {toon(root.resolve().name)}")
+def cmd_check(root, forced_type, repo_opt=None):
+    if forced_type and forced_type not in REQUIRED:
+        die(f"--type phải là một trong {TYPES.replace('|', ', ')}")
+    repo, source = repo_name(root, repo_opt)
+    rtype, private, heads, issues = check(root, forced_type, repo)
+    print(f"repo: {toon(repo)}")
+    print(f"repo_from: {source}")
     print(f"type: {rtype or 'unknown'}")
+    print(f"profile: {'private' if private else 'public'}")
     en, vi = heads.get(EN, []), heads.get(VI, [])
     rows = [{"n": i + 1, "en": en[i][1] if i < len(en) else "-", "vi": vi[i][1] if i < len(vi) else "-"}
             for i in range(max(len(en), len(vi)))]
@@ -172,9 +228,12 @@ def cmd_check(root, forced_type):
         print("\n".join(table("issues", ["file", "rule", "detail"], issues)))
         hints = []
         if any(i["rule"] == "support" for i in issues):
-            hints.append("Run `readme_axi.py support --write` to insert the shared support block")
+            hints.append("Run `readme_axi.py support --write` to insert the shared support block "
+                         "(private repo: add `private` to the marker instead)")
+        if any(i["rule"] == "type-marker" for i in issues):
+            hints.append(f"Marker line: <!-- readme-axi type=<{TYPES}> --> (append ` private` for a private repo)")
         if any(i["rule"] == "missing" for i in issues):
-            hints.append("Run `readme_axi.py scaffold --type <ha|card|esp32|tool> --title \"<name>\"` for a skeleton")
+            hints.append(f"Run `readme_axi.py scaffold --type <{TYPES}> --title \"<name>\" [--private]` for a skeleton")
         hints.append("Section names (EN -> VI) are listed by `readme_axi.py names`")
         print(f"help[{len(hints)}]:")
         for h in hints:
@@ -198,7 +257,7 @@ def cmd_drift(root, strict):
     if not last_vi:
         die("README.vi.md chưa có trong lịch sử git", 1, "Commit README.vi.md first")
     behind = git(root, "log", "--format=%h %s", f"{last_vi}..HEAD", "--", EN).splitlines()
-    print(f"repo: {toon(root.resolve().name)}")
+    print(f"repo: {toon(repo_name(root)[0])}")
     print(f"last_vi_commit: {last_vi[:8]}")
     if behind:
         rows = [{"commit": b.split(" ", 1)[0], "subject": (b.split(" ", 1) + [""])[1][:80]} for b in behind]
@@ -260,6 +319,12 @@ def place_support(text, repo, vi):
 
 
 def cmd_support(root, repo, write):
+    if is_private(root):
+        print(f"repo: {toon(repo)}")
+        print("profile: private")
+        print("result: skipped, a private repo needs no support block")
+        print("help[1]:\n  When the repo goes public, drop `private` from the marker, then rerun with --write")
+        return 0
     rows = []
     for f, vi in ((EN, False), (VI, True)):
         p = root / f
@@ -290,12 +355,16 @@ SCAFFOLD_BODY = {
     "esp32": ["Features", "Hardware", "Quick start", "Home Assistant", "Configuration", "Troubleshooting",
               "Project layout"],
     "tool": ["Installation", "Usage", "Commands", "Development"],
+    "app": ["Features", "Requirements", "Configuration", "Development", "Deployment", "Troubleshooting"],
+    "ops": ["Usage", "Commands", "Configuration", "Project layout", "Troubleshooting"],
+    "config": ["Project layout", "Configuration", "Deployment", "Troubleshooting"],
+    "docs": ["Contents", "Project layout"],
 }
 
 
-def cmd_scaffold(root, rtype, title, repo, force):
+def cmd_scaffold(root, rtype, title, repo, force, private):
     if rtype not in SCAFFOLD_BODY:
-        die("--type phải là ha, card, esp32 hoặc tool")
+        die(f"--type phải là một trong {TYPES.replace('|', ', ')}")
     if not title:
         die("thiếu --title")
     made = []
@@ -304,14 +373,17 @@ def cmd_scaffold(root, rtype, title, repo, force):
         if p.exists() and not force:
             made.append({"file": f, "action": "exists (use --force)"})
             continue
-        body = [f"# {title}", "", f"<!-- readme-axi type={rtype} -->", "", SWITCH_VI if vi else SWITCH_EN, "",
+        mark = f"<!-- readme-axi type={rtype}{' private' if private else ''} -->"
+        body = [f"# {title}", "", mark, "", SWITCH_VI if vi else SWITCH_EN, "",
                 "Một câu: làm gì, cho thiết bị nào." if vi else "One sentence: what it does, for which device.", ""]
         for n in SCAFFOLD_BODY[rtype]:
             body += [f"## {NAMES[n] if vi else n}", "", "TODO", ""]
-        body += [support_block(repo, vi), "", f"## {NAMES['License'] if vi else 'License'}", "",
-                 "[MIT](LICENSE) © Ngô Đức Việt", ""]
+        if not private:
+            body += [support_block(repo, vi), "", f"## {NAMES['License'] if vi else 'License'}", "",
+                     "[MIT](LICENSE) © Ngô Đức Việt", ""]
         p.write_text("\n".join(body), encoding="utf-8")
         made.append({"file": f, "action": "written"})
+    print(f"profile: {'private' if private else 'public'}")
     print("\n".join(table("scaffold", ["file", "action"], made)))
     print("help[1]:\n  Fill the TODO sections, then run `readme_axi.py check`")
     return 0
@@ -320,8 +392,9 @@ def cmd_scaffold(root, rtype, title, repo, force):
 def cmd_names():
     rows = [{"en": k, "vi": v} for k, v in NAMES.items()]
     print("\n".join(table("names", ["en", "vi"], rows)))
-    req = [{"type": t, "required": " > ".join(r) + " > Support the project > License"} for t, r in REQUIRED.items()]
+    req = [{"type": t, "required": " > ".join(r)} for t, r in REQUIRED.items()]
     print("\n".join(table("required", ["type", "required"], req)))
+    print(f"tail:\n  public: {' > '.join(TAIL)}\n  private: none")
     return 0
 
 
@@ -337,7 +410,7 @@ def main(argv):
     rest = argv[1:] if argv and argv[0] in cmds else argv
     opts, pos, i = {}, [], 0
     flags = {"--type", "--title", "--repo"}
-    bools = {"--write", "--force", "--strict"}
+    bools = {"--write", "--force", "--strict", "--private"}
     while i < len(rest):
         a = rest[i]
         if a in flags:
@@ -356,16 +429,17 @@ def main(argv):
     root = Path(pos[0]) if pos else Path(".")
     if not root.is_dir():
         die(f"không phải thư mục: {root}")
-    repo = opts.get("--repo") or root.resolve().name
     if cmd == "check":
-        return cmd_check(root, opts.get("--type"))
+        return cmd_check(root, opts.get("--type"), opts.get("--repo"))
     if cmd == "drift":
         return cmd_drift(root, opts.get("--strict", False))
+    if cmd == "names":
+        return cmd_names()
+    repo = repo_name(root, opts.get("--repo"))[0]
     if cmd == "support":
         return cmd_support(root, repo, opts.get("--write", False))
-    if cmd == "scaffold":
-        return cmd_scaffold(root, opts.get("--type"), opts.get("--title"), repo, opts.get("--force", False))
-    return cmd_names()
+    return cmd_scaffold(root, opts.get("--type"), opts.get("--title"), repo, opts.get("--force", False),
+                        opts.get("--private", False))
 
 
 if __name__ == "__main__":
