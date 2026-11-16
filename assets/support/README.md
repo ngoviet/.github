@@ -6,3 +6,7 @@ The VietQR card re-draws the original MB Bank payload as vector, and the Crypto 
 
 Insert or update the section with `readme_axi.py support <repo dir> --write` ([readme-axi](https://github.com/ngoviet/readme-axi));
 it is wrapped in `<!-- support:start -->` / `<!-- support:end -->` markers.
+
+`banner-v2.svg` (560×150, headline only, readable on a phone) is the banner of the current block; the sentence
+under it is real text in the README. `banner.svg` (820×170, sub-lines drawn in the image) is frozen: READMEs that
+still carry the older block point at it. The script no longer writes it; delete it once no README uses the old block.

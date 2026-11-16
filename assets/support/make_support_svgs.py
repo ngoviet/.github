@@ -49,19 +49,20 @@ def write(name, w, h, body, title):
 
 
 # ---------- banner ----------
-W, H = 820, 170
+# Chỉ một tiêu đề hai dòng, chữ to: README hiện banner rộng 560px trên máy tính nhưng chỉ ~288px trên điện thoại
+# (thu còn 0,51), 34px vẫn còn ~17px. Bản cũ 820px có dòng 16px, trên điện thoại còn 5,6px (design-kit 16/11/2026).
+# Dòng phụ nằm thành chữ HTML trong khối Ủng hộ của readme-axi: dịch được, co giãn được, máy tìm kiếm đọc được.
+# Ghi ra banner-v2.svg: banner.svg (820×170, có dòng phụ trong ảnh) giữ nguyên, không sinh lại, vì README chưa
+# chạy `support --write` vẫn trỏ tới nó; xoá khi không còn README nào dùng mẫu khối cũ.
+W, H = 560, 150
 body = defs(("c", C["cyan"]))
 body += f'<rect x="1" y="1" width="{W-2}" height="{H-2}" rx="18" fill="url(#bgg)" stroke="{C["border"]}" stroke-width="2"/>'
 body += f'<rect class="pulse" x="1" y="1" width="{W-2}" height="{H-2}" rx="18" fill="none" stroke="{C["cyan"]}" stroke-opacity=".35" stroke-width="1.5"/>'
-body += (f'<text x="{W/2}" y="58" text-anchor="middle" font-size="27" font-weight="700" fill="{C["fg"]}">'
-         f'Built &amp; maintained by one person in Việt Nam</text>')
-body += (f'<text x="{W/2}" y="92" text-anchor="middle" font-size="17" fill="{C["dim"]}">'
-         f'Một người Việt tự xây dựng và duy trì — miễn phí, mã nguồn mở</text>')
-body += (f'<text x="{W/2}" y="134" text-anchor="middle" font-size="16" fill="{C["dim"]}">'
-         f'Your support pays for: <tspan fill="{C["cyan"]}" font-weight="600">new device support</tspan>'
-         f' · <tspan fill="{C["cyan"]}" font-weight="600">faster fixes</tspan>'
-         f' · <tspan fill="{C["cyan"]}" font-weight="600">every Home Assistant release</tspan></text>')
-write("banner.svg", W, H, body, "Built and maintained by one person in Viet Nam")
+body += (f'<text x="{W/2}" y="66" text-anchor="middle" font-size="34" font-weight="700" fill="{C["fg"]}">'
+         f'Built &amp; maintained by</text>')
+body += (f'<text x="{W/2}" y="112" text-anchor="middle" font-size="34" font-weight="700" fill="{C["cyan"]}">'
+         f'one person in Việt Nam</text>')
+write("banner-v2.svg", W, H, body, "Built and maintained by one person in Viet Nam")
 
 
 # ---------- buttons ----------
@@ -73,7 +74,7 @@ def button(name, label, sub, accent, accent_t, icon, title):
     # không có chữ phụ thì nhãn nằm giữa theo chiều dọc
     b += f'<text x="70" y="{30 if sub else 39}" font-size="19" font-weight="700" fill="{accent_t}">{label}</text>'
     if sub:
-        b += f'<text x="70" y="49" font-size="13" fill="{C["dim"]}">{sub}</text>'
+        b += f'<text x="70" y="50" font-size="14" fill="{C["dim"]}">{sub}</text>'  # hiện cao 56px: còn 12,3px
     write(name, w, h, b, title)
 
 
@@ -121,7 +122,7 @@ def qr_card(name, payload, accent, accent_t, title, sub, lines, aria):
 qr_card("vietqr-card.svg", VIETQR, C["teal"], C["teal_t"], "VietQR", "Chuyển khoản trong nước · miễn phí", [
     f'font-size="17" font-weight="600" fill="{C["fg"]}">MB Bank · NGO DUC VIET',
     f'font-size="16" fill="{C["dim"]}">STK <tspan fill="{C["teal_t"]}" font-weight="600">911051212</tspan>',
-    f'font-size="14" fill="{C["dim"]}" dy="2">Nội dung: <tspan fill="{C["fg"]}">Ung ho + tên dự án</tspan>',
+    f'font-size="15" fill="{C["dim"]}" dy="2">Nội dung: <tspan fill="{C["fg"]}">Ung ho + tên dự án</tspan>',
 ], "VietQR MB Bank NGO DUC VIET 911051212")
 
 MONO = "ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace"
